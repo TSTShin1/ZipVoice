@@ -22,7 +22,7 @@ nj=20
 # Set `train_hours` to "Total speech duration", and set `max_len` to 99% duration.
 
 # Number of hours in training set, will affect the learning rate schedule
-train_hours=500
+train_hours=19
 # Maximum length (seconds) of the training utterance, will filter out longer utterances
 max_len=20
 
