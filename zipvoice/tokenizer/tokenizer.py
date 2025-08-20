@@ -507,19 +507,24 @@ class VietnameseTokenizer(Tokenizer):
         """
         # 1. Nạp từ điển âm vị
         self.token2id: Dict[str, int] = {}
-        with open(token_file, "r", encoding="utf-8") as f:
-            for line in f:
-                parts = line.strip().split("\t")
-                if len(parts) == 2:
-                    token, token_id = parts[0], int(parts[1])
-                    self.token2id[token] = token_id
-        
+        try:
+            with open(token_file, "r", encoding="utf-8") as f:
+                for line in f:
+                    parts = line.strip().split("\t")
+                    if len(parts) == 2:
+                        token, token_id = parts[0], int(parts[1])
+                        self.token2id[token] = token_id
+        except FileNotFoundError:
+            logging.error(f"Lỗi: Không tìm thấy tệp token tại '{token_file}'")
+            # Tạo một từ điển rỗng để tránh lỗi tiếp theo
+            self.token2id = {"_": 0, "[S1]": 1, "[S2]": 2}
+
+
         # ID cho padding
         self.pad_id = self.token2id.get("_", 0)
         self.vocab_size = len(self.token2id)
-        
-        # 2. Khởi tạo bộ chuyển đổi G2P của viphoneme
-        self.g2p = vi2IPA_split()
+        # 2. XÓA DÒNG GÂY LỖI: Không cần khởi tạo g2p ở đây
+        # self.g2p = vi2IPA_split()
 
     def texts_to_tokens(self, texts: List[str]) -> List[List[str]]:
         """Chuyển đổi danh sách các câu thành danh sách các chuỗi âm vị."""
@@ -536,12 +541,15 @@ class VietnameseTokenizer(Tokenizer):
         Sử dụng viphoneme để chuyển đổi một câu tiếng Việt thành danh sách âm vị.
         """
         try:
-            # viphoneme trả về một chuỗi các âm vị cách nhau bởi dấu cách
-            # ví dụ: "xin chào" -> "s i n / c aw2"
-            phoneme_str = self.g2p.g2p_viphoneme(text)
-            
+            # SỬA LỖI Ở ĐÂY:
+            # Gọi thẳng hàm `vi2IPA_split` và truyền vào 2 tham số:
+            # 1. text: văn bản cần chuyển đổi
+            # 2. delimit: ký tự phân cách các âm tiết, thường là "/"
+            phoneme_str = vi2IPA_split(text, delimit="/")
+
             # Tách chuỗi thành một danh sách các âm vị
-            return phoneme_str.split()
+            # Dùng regex để tách theo dấu cách hoặc ký tự delimit
+            return re.split(r'\s+|/', phoneme_str)
         except Exception as e:
             logging.warning(f"Lỗi khi chuyển đổi G2P cho văn bản: '{text}'. Lỗi: {e}")
             return []
