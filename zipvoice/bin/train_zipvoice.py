@@ -63,6 +63,7 @@ from zipvoice.tokenizer.tokenizer import (
     EspeakTokenizer,
     LibriTTSTokenizer,
     SimpleTokenizer,
+    VietnameseTokenizer
 )
 from zipvoice.utils.checkpoint import (
     load_checkpoint,
@@ -905,6 +906,8 @@ def run(rank, world_size, args):
 
     if params.tokenizer == "emilia":
         tokenizer = EmiliaTokenizer(token_file=params.token_file)
+    elif params.tokenizer == "vietnam":
+        tokenizer = VietnameseTokenizer(token_file=params.token_file)
     elif params.tokenizer == "libritts":
         tokenizer = LibriTTSTokenizer(token_file=params.token_file)
     elif params.tokenizer == "espeak":
