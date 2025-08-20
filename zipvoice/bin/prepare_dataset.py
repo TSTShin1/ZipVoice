@@ -193,7 +193,7 @@ def prepare_dataset(
     # Step 1: Read all unique recording paths
     recordings_path_set = set()
     supervision_list = list()
-    with open(tsv_path, "r") as fr:
+    with open(tsv_path, "r", encoding="utf-8") as fr:
         for line in fr:
             items = line.strip().split("\t")
             if len(items) == 3:
@@ -223,8 +223,9 @@ def prepare_dataset(
                 recording, recording_id = future.result()
                 recording_dict[recording_id] = recording
             except Exception as e:
+                rec_id = locals().get("recording_id", "UNKNOWN")
                 logging.warning(
-                    f"Error processing recording {recording_id} with error: {e}"
+                    f"Error processing recording {rec_id} with error: {e}"
                 )
 
         recording_set = RecordingSet.from_recordings(recording_dict.values())
