@@ -21,7 +21,7 @@ import re
 from abc import ABC, abstractmethod
 from functools import reduce
 from typing import Dict, List, Optional
-
+from viphoneme import vi2IPA, vi2IPA_split
 import jieba
 from lhotse import CutSet
 from pypinyin import Style, lazy_pinyin
@@ -497,7 +497,82 @@ class EmiliaTokenizer(Tokenizer):
             return True
         else:
             return False
+        
+class VietnameseTokenizer(Tokenizer):
+    def __init__(self, token_file: str):
+        """
+        Args:
+            token_file: Đường dẫn đến tệp chứa map từ âm vị sang ID.
+                        Định dạng: '{âm_vị}\t{id}' trên mỗi dòng.
+        """
+        # 1. Nạp từ điển âm vị
+        self.token2id: Dict[str, int] = {}
+        with open(token_file, "r", encoding="utf-8") as f:
+            for line in f:
+                parts = line.strip().split("\t")
+                if len(parts) == 2:
+                    token, token_id = parts[0], int(parts[1])
+                    self.token2id[token] = token_id
+        
+        # ID cho padding
+        self.pad_id = self.token2id.get("_", 0)
+        self.vocab_size = len(self.token2id)
+        
+        # 2. Khởi tạo bộ chuyển đổi G2P của viphoneme
+        self.g2p = vi2IPA_split()
 
+    def texts_to_tokens(self, texts: List[str]) -> List[List[str]]:
+        """Chuyển đổi danh sách các câu thành danh sách các chuỗi âm vị."""
+        all_phonemes = []
+        for text in texts:
+            # Có thể thêm các bước tiền xử lý/chuẩn hóa văn bản ở đây
+            # text = self.preprocess_text(text)
+            phonemes = self.tokenize_VI(text)
+            all_phonemes.append(phonemes)
+        return all_phonemes
+
+    def tokenize_VI(self, text: str) -> List[str]:
+        """
+        Sử dụng viphoneme để chuyển đổi một câu tiếng Việt thành danh sách âm vị.
+        """
+        try:
+            # viphoneme trả về một chuỗi các âm vị cách nhau bởi dấu cách
+            # ví dụ: "xin chào" -> "s i n / c aw2"
+            phoneme_str = self.g2p.g2p_viphoneme(text)
+            
+            # Tách chuỗi thành một danh sách các âm vị
+            return phoneme_str.split()
+        except Exception as e:
+            logging.warning(f"Lỗi khi chuyển đổi G2P cho văn bản: '{text}'. Lỗi: {e}")
+            return []
+
+    def tokens_to_token_ids(self, tokens_list: List[List[str]]) -> List[List[int]]:
+        """Chuyển đổi danh sách các chuỗi âm vị thành danh sách các chuỗi ID."""
+        token_ids_list = []
+        for tokens in tokens_list:
+            token_ids = [self.token2id[t] for t in tokens if t in self.token2id]
+            token_ids_list.append(token_ids)
+        return token_ids_list
+
+    def texts_to_token_ids(self, texts: List[str]) -> List[List[int]]:
+        """Quy trình hoàn chỉnh: texts -> tokens -> ids."""
+        tokens_list = self.texts_to_tokens(texts)
+        return self.tokens_to_token_ids(tokens_list)
+    
+class DialogTokenizer(VietnameseTokenizer):
+    def __init__(self, token_file: Optional[str] = None, token_type="phone"):
+        super().__init__(token_file=token_file, token_type=token_type)
+        if token_file:
+            self.spk_a_id = self.token2id["[S1]"]
+            self.spk_b_id = self.token2id["[S2]"]
+
+    def preprocess_text(
+        self,
+        text: str,
+    ) -> str:
+        text = re.sub(r"\s*(\[S[12]\])\s*", r"\1", text)
+        text = self.map_punctuations(text)
+        return text
 
 class DialogTokenizer(EmiliaTokenizer):
     def __init__(self, token_file: Optional[str] = None, token_type="phone"):
@@ -622,6 +697,8 @@ def add_tokens(cut_set: CutSet, tokenizer: str, lang: str):
         tokenizer = LibriTTSTokenizer()
     elif tokenizer == "simple":
         tokenizer = SimpleTokenizer()
+    elif tokenizer == "vietnam":
+        tokenizer = VietnameseTokenizer()
     else:
         raise ValueError(f"Unsupported tokenizer: {tokenizer}.")
 
