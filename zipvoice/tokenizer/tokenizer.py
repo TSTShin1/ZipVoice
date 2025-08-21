@@ -568,19 +568,57 @@ class VietnameseTokenizer(Tokenizer):
         return self.tokens_to_token_ids(tokens_list)
     
 class DialogTokenizer(VietnameseTokenizer):
-    def __init__(self, token_file: Optional[str] = None, token_type="phone"):
-        super().__init__(token_file=token_file, token_type=token_type)
+    def __init__(self, token_file: Optional[str] = None):
+        # SỬA LỖI 1: Chỉ truyền `token_file` mà lớp cha yêu cầu.
+        super().__init__(token_file=token_file)
+        
+        # Cải tiến: Dùng .get() để tránh lỗi nếu không có key speaker trong file
         if token_file:
-            self.spk_a_id = self.token2id["[S1]"]
-            self.spk_b_id = self.token2id["[S2]"]
+            self.spk_a_id = self.token2id.get("[S1]")
+            self.spk_b_id = self.token2id.get("[S2]")
 
-    def preprocess_text(
-        self,
-        text: str,
-    ) -> str:
+        # Định nghĩa các quy tắc thay thế dấu câu ngay trong init
+        self.punctuation_map = {
+            "–": "-",
+            "—": "-",
+            "…": "...",
+            "“": '"',
+            "”": '"',
+        }
+
+    def map_punctuations(self, text: str) -> str:
+        """
+        SỬA LỖI 2: Bổ sung định nghĩa cho hàm này.
+        Hàm này chuẩn hóa các loại dấu câu khác nhau về một dạng chung.
+        """
+        for punc_from, punc_to in self.punctuation_map.items():
+            text = text.replace(punc_from, punc_to)
+        return text
+
+    def preprocess_text(self, text: str) -> str:
+        """
+        Tiền xử lý văn bản trước khi đưa vào G2P.
+        """
+        # Dòng này đã đúng, giữ nguyên
         text = re.sub(r"\s*(\[S[12]\])\s*", r"\1", text)
+        
+        # Bây giờ hàm này đã tồn tại và có thể gọi được
         text = self.map_punctuations(text)
         return text
+
+    # Ghi đè phương thức texts_to_tokens để áp dụng tiền xử lý
+    def texts_to_tokens(self, texts: List[str]) -> List[List[str]]:
+        """
+        Chuyển đổi danh sách các câu thành danh sách các chuỗi âm vị,
+        CÓ ÁP DỤNG `preprocess_text`.
+        """
+        all_phonemes = []
+        for text in texts:
+            # Áp dụng hàm tiền xử lý của lớp DialogTokenizer
+            processed_text = self.preprocess_text(text)
+            phonemes = self.tokenize_VI(processed_text)
+            all_phonemes.append(phonemes)
+        return all_phonemes
 
 class DialogTokenizer(EmiliaTokenizer):
     def __init__(self, token_file: Optional[str] = None, token_type="phone"):
