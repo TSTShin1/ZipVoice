@@ -125,14 +125,14 @@ def get_parser():
         "--tokenizer",
         type=str,
         default="emilia",
-        choices=["emilia", "libritts", "espeak", "simple"],
+        choices=["emilia", "libritts", "espeak", "simple", "vietnam"],
         help="Tokenizer type.",
     )
 
     parser.add_argument(
         "--lang",
         type=str,
-        default="en-us",
+        default="vi",
         help="Language identifier, used when tokenizer type is espeak. see"
         "https://github.com/rhasspy/espeak-ng/blob/master/docs/languages.md",
     )
