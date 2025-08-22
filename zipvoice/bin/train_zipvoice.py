@@ -601,7 +601,7 @@ def train_one_epoch(
                     tb_writer, "train/valid_", params.batch_idx_train
                 )
             if rank == 0:
-                valid_metrics = {f"valid/{k}": v for k, v in valid_info.values().items()}
+                valid_metrics = {f"valid/{k}": v for k, v in valid_info.items()}
                 # Đặt step (trục x) là global batch index
                 wandb.log(valid_metrics, step=params.batch_idx_train)
 
@@ -739,9 +739,9 @@ def train_one_epoch(
                         "train/learning_rate": cur_lr,
                         "epoch": params.cur_epoch,
                     }
-                for k, v in loss_info.values().items():
+                for k, v in loss_info.items():
                     train_metrics[f"train/current_{k}"] = v
-                for k, v in tot_loss.values().items():
+                for k, v in tot_loss.items():
                     train_metrics[f"train/total_{k}"] = v
                 if params.use_fp16:
                     train_metrics["train/grad_scale"] = cur_grad_scale
