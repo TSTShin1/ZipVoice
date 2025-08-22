@@ -44,6 +44,8 @@ from functools import partial
 from pathlib import Path
 from shutil import copyfile
 from typing import List, Optional, Tuple, Union
+import wandb
+import random
 
 import torch
 import torch.multiprocessing as mp
@@ -95,6 +97,17 @@ from zipvoice.utils.optim import ScaledAdam
 
 LRSchedulerType = Union[torch.optim.lr_scheduler._LRScheduler, LRScheduler]
 
+run = wandb.init(
+    project="zipvoice-training-demo",
+    name=f"run-{random.randint(1000, 9999)}",
+    config={
+        "learning_rate": 0.001,
+        "epochs": 10,
+        "batch_size": 16,
+        "architecture": "Zipformer",
+        "dataset": "quang_a_tun"
+    }
+)
 
 def get_parser():
     parser = argparse.ArgumentParser(
@@ -587,6 +600,10 @@ def train_one_epoch(
                 valid_info.write_summary(
                     tb_writer, "train/valid_", params.batch_idx_train
                 )
+            if rank == 0:
+                valid_metrics = {f"valid/{k}": v for k, v in valid_info.values.items()}
+                # Đặt step (trục x) là global batch index
+                wandb.log(valid_metrics, step=params.batch_idx_train)
 
         params.batch_idx_train += 1
 
@@ -717,7 +734,19 @@ def train_one_epoch(
                         cur_grad_scale,
                         params.batch_idx_train,
                     )
+                if rank == 0:
+                    train_metrics = {
+                        "train/learning_rate": cur_lr,
+                        "epoch": params.cur_epoch,
+                    }
+                for k, v in loss_info.values.items():
+                    train_metrics[f"train/current_{k}"] = v
+                for k, v in tot_loss.values.items():
+                    train_metrics[f"train/total_{k}"] = v
+                if params.use_fp16:
+                    train_metrics["train/grad_scale"] = cur_grad_scale
 
+                wandb.log(train_metrics, step=params.batch_idx_train)
     loss_value = tot_loss["loss"]
     params.train_loss = loss_value
     if params.train_loss < params.best_train_loss:
